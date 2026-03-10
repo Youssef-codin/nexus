@@ -1,0 +1,16 @@
+opencollection: 1.0.0
+info:
+  name: "NexusPay"
+  type: workspace
+
+collections:
+  - name: "NexusPay API - 1"
+    path: "collections/NexusPay API - 1"
+
+specs:
+  - name: "openapi"
+    path: "../../openapi.yaml"
+
+docs: ''
+
+activeEnvironmentUid: 1k2abvz00000000000000

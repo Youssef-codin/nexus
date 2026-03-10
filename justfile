@@ -68,19 +68,19 @@ sqlc-gen:
 
 [group('db')]
 migrate-up:
-    goose -dir {{env_var('GOOSE_MIGRATION_DIR')}} {{env_var('GOOSE_DRIVER')}} "{{env_var('GOOSE_DBSTRING')}}" up
+    goose up
 
 [group('db')]
 migrate-down:
-    goose -dir {{env_var('GOOSE_MIGRATION_DIR')}} {{env_var('GOOSE_DRIVER')}} "{{env_var('GOOSE_DBSTRING')}}" down
+    goose down
 
 [group('db')]
 migrate-status:
-    goose -dir {{env_var('GOOSE_MIGRATION_DIR')}} {{env_var('GOOSE_DRIVER')}} "{{env_var('GOOSE_DBSTRING')}}" status
+    goose status
 
 [group('db')]
 migrate-create NAME="migration":
-    goose -dir {{env_var('GOOSE_MIGRATION_DIR')}} create {{NAME}} sql
+    goose create {{NAME}} sql
 
 # ── Setup ─────────────────────────────────────────────────────────────────────
 

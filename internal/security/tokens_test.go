@@ -4,17 +4,17 @@ import (
 	"net/http"
 	"net/http/httptest"
 	"testing"
+	"time"
 
 	"github.com/go-chi/chi/v5"
 	"github.com/go-chi/jwtauth/v5"
 )
 
+const refreshTokenDuration = 7 * 24 * time.Hour
+
 func TestAuthHandler_ValidToken(t *testing.T) {
-	auth := NewAuthenticator("test-secret")
-	token, err := auth.MakeJWTToken(Claims{ID: "user123"})
-	if err != nil {
-		t.Fatalf("failed to create token: %v", err)
-	}
+	auth := NewAuthenticator("test-secret", refreshTokenDuration)
+	token := auth.MakeJWTToken(Claims{ID: "user123"})
 
 	router := chi.NewRouter()
 	router.Group(func(r chi.Router) {
@@ -38,7 +38,7 @@ func TestAuthHandler_ValidToken(t *testing.T) {
 }
 
 func TestAuthHandler_NoToken(t *testing.T) {
-	auth := NewAuthenticator("test-secret")
+	auth := NewAuthenticator("test-secret", refreshTokenDuration)
 
 	router := chi.NewRouter()
 	router.Group(func(r chi.Router) {
@@ -59,7 +59,7 @@ func TestAuthHandler_NoToken(t *testing.T) {
 }
 
 func TestAuthHandler_InvalidToken(t *testing.T) {
-	auth := NewAuthenticator("test-secret")
+	auth := NewAuthenticator("test-secret", refreshTokenDuration)
 
 	router := chi.NewRouter()
 	router.Group(func(r chi.Router) {
@@ -81,13 +81,10 @@ func TestAuthHandler_InvalidToken(t *testing.T) {
 }
 
 func TestAuthHandler_WrongSecret(t *testing.T) {
-	auth := NewAuthenticator("test-secret")
-	otherAuth := NewAuthenticator("other-secret")
+	auth := NewAuthenticator("test-secret", refreshTokenDuration)
+	otherAuth := NewAuthenticator("other-secret", refreshTokenDuration)
 
-	token, err := otherAuth.MakeJWTToken(Claims{ID: "user123"})
-	if err != nil {
-		t.Fatalf("failed to create token: %v", err)
-	}
+	token := otherAuth.MakeJWTToken(Claims{ID: "user123"})
 
 	router := chi.NewRouter()
 	router.Group(func(r chi.Router) {
@@ -109,19 +106,16 @@ func TestAuthHandler_WrongSecret(t *testing.T) {
 }
 
 func TestMakeJWTToken(t *testing.T) {
-	auth := NewAuthenticator("test-secret")
+	auth := NewAuthenticator("test-secret", refreshTokenDuration)
 
-	token, err := auth.MakeJWTToken(Claims{ID: "user123"})
-	if err != nil {
-		t.Fatalf("expected no error, got %v", err)
-	}
+	token := auth.MakeJWTToken(Claims{ID: "user123"})
 	if token == "" {
 		t.Error("expected non-empty token")
 	}
 }
 
 func TestHashRefreshToken(t *testing.T) {
-	auth := NewAuthenticator("test-secret")
+	auth := NewAuthenticator("test-secret", refreshTokenDuration)
 
 	hash1 := auth.HashRefreshToken("test-token")
 	hash2 := auth.HashRefreshToken("test-token")
@@ -139,20 +133,14 @@ func TestHashRefreshToken(t *testing.T) {
 }
 
 func TestMakeRawRefreshToken(t *testing.T) {
-	auth := NewAuthenticator("test-secret")
+	auth := NewAuthenticator("test-secret", refreshTokenDuration)
 
-	token1, err := auth.MakeRawRefreshToken()
-	if err != nil {
-		t.Fatalf("expected no error, got %v", err)
-	}
+	token1 := auth.MakeRawRefreshToken()
 	if len(token1) != 64 {
 		t.Errorf("expected token length 64, got %d", len(token1))
 	}
 
-	token2, err := auth.MakeRawRefreshToken()
-	if err != nil {
-		t.Fatalf("expected no error, got %v", err)
-	}
+	token2 := auth.MakeRawRefreshToken()
 	if token1 == token2 {
 		t.Error("tokens should be unique")
 	}

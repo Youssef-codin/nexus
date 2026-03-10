@@ -11,10 +11,10 @@ import (
 	"syscall"
 	"time"
 
+	"github.com/Youssef-codin/NexusPay/internal/auth"
 	repo "github.com/Youssef-codin/NexusPay/internal/db/postgresql/sqlc"
 	"github.com/Youssef-codin/NexusPay/internal/db/redisDb"
 	"github.com/Youssef-codin/NexusPay/internal/security"
-	"github.com/Youssef-codin/NexusPay/internal/users"
 	"github.com/Youssef-codin/NexusPay/internal/utils/api"
 	"github.com/go-chi/chi/v5"
 	"github.com/go-chi/chi/v5/middleware"
@@ -34,6 +34,9 @@ func (app *application) mount() http.Handler {
 	port, _ := strconv.Atoi(portStr)
 
 	rmain := chi.NewRouter()
+	rmain.NotFound(func(w http.ResponseWriter, r *http.Request) {
+		api.Error(w, "route not found", http.StatusNotFound)
+	})
 
 	// A good base middleware stack
 	rmain.Use(middleware.RequestID)
@@ -56,18 +59,26 @@ func (app *application) mount() http.Handler {
 	// processing should be stopped.
 	rmain.Use(middleware.Timeout(60 * time.Second))
 
-	auth := security.NewAuthenticator(app.config.secret)
+	const refreshTokenDuration = 7 * 24 * time.Hour
+	authenticator := security.NewAuthenticator(app.config.secret, refreshTokenDuration)
 
 	SQLCRepo := repo.New(app.db)
+	AuthCache := redisDb.NewUsers(app.redis)
+	AuthService := auth.NewService(SQLCRepo, app.db, AuthCache, authenticator)
+	AuthController := auth.NewController(AuthService)
 
 	rmain.Group(func(rprotected chi.Router) {
-		rprotected.Use(jwtauth.Verifier(auth.TokenAuth))
-		rprotected.Use(jwtauth.Authenticator(auth.TokenAuth))
+		rprotected.Use(jwtauth.Verifier(authenticator.TokenAuth))
+		rprotected.Use(authenticator.AuthHandler())
+		rprotected.Use(api.NewUserLimiter(15, host, uint16(port)))
+
+		rprotected.Get("/auth/test", api.Wrap(AuthController.TestAuth))
+		rprotected.Post("/auth/logout", api.Wrap(AuthController.LogoutController))
 	})
 
 	rmain.Group(func(rpublic chi.Router) {
 		rpublic.Use(httprate.Limit(
-			5,
+			15,
 			time.Minute,
 			httprate.WithKeyByIP(),
 			httprateredis.WithRedisLimitCounter(&httprateredis.Config{
@@ -77,17 +88,13 @@ func (app *application) mount() http.Handler {
 		))
 
 		rpublic.Get("/healthx", func(w http.ResponseWriter, r *http.Request) {
-			w.Write([]byte("good for now"))
+			api.Respond(w, nil, http.StatusNoContent)
 		})
 
 		rpublic.Route("/auth", func(rauth chi.Router) {
-			userCache := redisDb.NewUsers(app.redis)
-			userService := users.NewService(SQLCRepo, app.db, userCache)
-			userController := users.NewController(userService)
-
-			rauth.Post("/register", api.Wrap(userController.RegisterController))
-			rauth.Post("/login", api.Wrap(userController.LoginController))
-
+			rauth.Post("/register", api.Wrap(AuthController.RegisterController))
+			rauth.Post("/login", api.Wrap(AuthController.LoginController))
+			rauth.Post("/refresh", api.Wrap(AuthController.RefreshController))
 		})
 	})
 

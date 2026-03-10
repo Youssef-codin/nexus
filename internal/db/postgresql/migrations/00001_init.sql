@@ -10,7 +10,7 @@ CREATE TABLE users (
     email               TEXT NOT NULL UNIQUE,
     password            TEXT NOT NULL,
     full_name           TEXT NOT NULL,
-    refresh_token       TEXT,
+    refresh_token       TEXT UNIQUE,
     token_expires_at    TIMESTAMPTZ,
     created_at          TIMESTAMPTZ NOT NULL DEFAULT NOW(),
     updated_at          TIMESTAMPTZ NOT NULL DEFAULT NOW(),
@@ -65,6 +65,14 @@ CREATE TABLE scheduled_transfers (
     created_at   TIMESTAMPTZ NOT NULL DEFAULT NOW()
 );
 
+CREATE INDEX idx_users_name ON users(full_name);
+CREATE INDEX idx_wallets_user_id ON wallets(user_id);
+CREATE INDEX idx_transactions_wallet_id ON transactions(wallet_id);
+CREATE INDEX idx_transactions_transfer_id ON transactions(transfer_id);
+CREATE INDEX idx_transfers_from_wallet_id ON transfers(from_wallet_id);
+CREATE INDEX idx_transfers_to_wallet_id ON transfers(to_wallet_id);
+CREATE INDEX idx_scheduled_transfers_scheduled_at ON scheduled_transfers(scheduled_at);
+
 CREATE OR REPLACE FUNCTION set_updated_at()
 RETURNS TRIGGER AS $$
 BEGIN
@@ -100,6 +108,10 @@ DROP TRIGGER IF EXISTS users_set_updated_at ON users;
 DROP FUNCTION IF EXISTS set_updated_at();
 
 DROP TABLE IF EXISTS scheduled_transfers;
+
+ALTER TABLE transfers DROP CONSTRAINT IF EXISTS fk_debit_transaction;
+ALTER TABLE transfers DROP CONSTRAINT IF EXISTS fk_credit_transaction;
+
 DROP TABLE IF EXISTS transactions;
 DROP TABLE IF EXISTS transfers;
 DROP TABLE IF EXISTS wallets;

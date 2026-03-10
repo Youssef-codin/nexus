@@ -11,9 +11,10 @@ import (
 )
 
 type Querier interface {
-	CreateUser(ctx context.Context, arg CreateUserParams) (User, error)
+	CreateUser(ctx context.Context, arg CreateUserParams) (CreateUserRow, error)
 	GetUserByEmail(ctx context.Context, email string) (User, error)
 	GetUserById(ctx context.Context, id pgtype.UUID) (User, error)
+	GetUserByRefreshToken(ctx context.Context, refreshToken pgtype.Text) (User, error)
 	RevokeRefreshToken(ctx context.Context, id pgtype.UUID) error
 	SoftDeleteUser(ctx context.Context, id pgtype.UUID) error
 	UpdateRefreshToken(ctx context.Context, arg UpdateRefreshTokenParams) error

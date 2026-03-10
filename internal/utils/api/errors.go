@@ -19,7 +19,7 @@ func (e CodedError) Unwrap() error {
 	return e.Err
 }
 
-func Errorf(code int, format string, args ...any) error {
+func WrappedError(code int, format string, args ...any) error {
 	return CodedError{
 		Code: code,
 		Err:  fmt.Errorf(format, args...),

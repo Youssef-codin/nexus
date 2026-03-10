@@ -4,6 +4,7 @@ import (
 	"bytes"
 	"errors"
 	"log"
+	"log/slog"
 	"net/http"
 )
 
@@ -35,8 +36,9 @@ func Wrap(f func(w http.ResponseWriter, req *http.Request) error) http.HandlerFu
 		if err := f(buf, req); err != nil {
 			var coded CodedError
 			if !errors.As(err, &coded) {
-				coded = Errorf(http.StatusInternalServerError, "un-coded error: %w", err).(CodedError)
+				coded = WrappedError(http.StatusInternalServerError, "un-coded error: %w", err).(CodedError)
 			}
+			slog.Error("login failed", "error", err)
 			Error(w, coded.Err.Error(), coded.Code)
 			return
 		}

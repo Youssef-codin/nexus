@@ -22,7 +22,12 @@ INSERT INTO
   )
 VALUES
   ($1, $2, $3, $4, $5)
-RETURNING id, email, password, full_name, refresh_token, token_expires_at, created_at, updated_at, deleted_at
+RETURNING
+  id,
+  email,
+  full_name,
+  refresh_token,
+  created_at
 `
 
 type CreateUserParams struct {
@@ -33,7 +38,15 @@ type CreateUserParams struct {
 	TokenExpiresAt pgtype.Timestamptz `json:"token_expires_at"`
 }
 
-func (q *Queries) CreateUser(ctx context.Context, arg CreateUserParams) (User, error) {
+type CreateUserRow struct {
+	ID           pgtype.UUID        `json:"id"`
+	Email        string             `json:"email"`
+	FullName     string             `json:"full_name"`
+	RefreshToken pgtype.Text        `json:"refresh_token"`
+	CreatedAt    pgtype.Timestamptz `json:"created_at"`
+}
+
+func (q *Queries) CreateUser(ctx context.Context, arg CreateUserParams) (CreateUserRow, error) {
 	row := q.db.QueryRow(ctx, createUser,
 		arg.Email,
 		arg.Password,
@@ -41,17 +54,13 @@ func (q *Queries) CreateUser(ctx context.Context, arg CreateUserParams) (User, e
 		arg.RefreshToken,
 		arg.TokenExpiresAt,
 	)
-	var i User
+	var i CreateUserRow
 	err := row.Scan(
 		&i.ID,
 		&i.Email,
-		&i.Password,
 		&i.FullName,
 		&i.RefreshToken,
-		&i.TokenExpiresAt,
 		&i.CreatedAt,
-		&i.UpdatedAt,
-		&i.DeletedAt,
 	)
 	return i, err
 }
@@ -85,6 +94,28 @@ WHERE id = $1 AND deleted_at IS NULL
 
 func (q *Queries) GetUserById(ctx context.Context, id pgtype.UUID) (User, error) {
 	row := q.db.QueryRow(ctx, getUserById, id)
+	var i User
+	err := row.Scan(
+		&i.ID,
+		&i.Email,
+		&i.Password,
+		&i.FullName,
+		&i.RefreshToken,
+		&i.TokenExpiresAt,
+		&i.CreatedAt,
+		&i.UpdatedAt,
+		&i.DeletedAt,
+	)
+	return i, err
+}
+
+const getUserByRefreshToken = `-- name: GetUserByRefreshToken :one
+SELECT id, email, password, full_name, refresh_token, token_expires_at, created_at, updated_at, deleted_at FROM users
+WHERE refresh_token = $1 AND deleted_at IS NULL
+`
+
+func (q *Queries) GetUserByRefreshToken(ctx context.Context, refreshToken pgtype.Text) (User, error) {
+	row := q.db.QueryRow(ctx, getUserByRefreshToken, refreshToken)
 	var i User
 	err := row.Scan(
 		&i.ID,

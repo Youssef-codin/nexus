@@ -16,38 +16,32 @@ type Claims struct {
 }
 
 type Authenticator struct {
-	TokenAuth *jwtauth.JWTAuth
+	TokenAuth            *jwtauth.JWTAuth
+	RefreshTokenDuration time.Duration
 }
 
-func NewAuthenticator(secret string) *Authenticator {
+func NewAuthenticator(secret string, refreshTokenDuration time.Duration) *Authenticator {
 	tokenAuth := jwtauth.New("HS256", []byte(secret), nil)
 	return &Authenticator{
-		TokenAuth: tokenAuth,
+		TokenAuth:            tokenAuth,
+		RefreshTokenDuration: refreshTokenDuration,
 	}
 }
 
-func (a *Authenticator) MakeJWTToken(claims Claims) (string, error) {
+// NOTE: sub has the ID
+func (a *Authenticator) MakeJWTToken(claims Claims) string {
 	mappedClaims := map[string]interface{}{"sub": claims.ID}
 	jwtauth.SetExpiry(mappedClaims, time.Now().Add(time.Minute*15))
 	jwtauth.SetIssuedNow(mappedClaims)
 
-	_, token, err := a.TokenAuth.Encode(mappedClaims)
-	if err != nil {
-		return "", err
-	}
-
-	return token, nil
+	_, token, _ := a.TokenAuth.Encode(mappedClaims)
+	return token
 }
 
-func (a *Authenticator) MakeRawRefreshToken() (string, error) {
+func (a *Authenticator) MakeRawRefreshToken() string {
 	randBytes := make([]byte, 32)
-
-	_, err := rand.Read(randBytes)
-	if err != nil {
-		return "", err
-	}
-
-	return hex.EncodeToString(randBytes[:]), nil
+	rand.Read(randBytes)
+	return hex.EncodeToString(randBytes[:])
 }
 
 func (a *Authenticator) HashRefreshToken(token string) string {
@@ -61,7 +55,7 @@ func (a *Authenticator) AuthHandler() func(http.Handler) http.Handler {
 			token, _, err := jwtauth.FromContext(req.Context())
 
 			if err != nil {
-				api.Error(w, err.Error(), http.StatusUnauthorized)
+				api.Error(w, "unauthorized", http.StatusUnauthorized)
 				return
 			}
 

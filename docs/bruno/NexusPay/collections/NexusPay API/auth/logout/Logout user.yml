@@ -1,0 +1,57 @@
+info:
+  name: Logout user
+  type: http
+  seq: 1
+  tags:
+    - Authentication
+
+http:
+  method: GET
+  url: "{{baseUrl}}/auth/logout"
+  auth:
+    type: bearer
+    token: "{{token}}"
+
+settings:
+  encodeUrl: true
+  timeout: 0
+  followRedirects: true
+  maxRedirects: 5
+
+examples:
+  - name: 200 Response
+    description: Logout successful
+    request:
+      url: "{{baseUrl}}/auth/logout"
+      method: GET
+    response:
+      status: 200
+      statusText: OK
+      headers:
+        - name: Content-Type
+          value: application/json
+      body:
+        type: json
+        data: |-
+          {
+            "message": "Logged out successfully"
+          }
+  - name: 401 Response
+    description: Unauthorized - missing or invalid token
+    request:
+      url: "{{baseUrl}}/auth/logout"
+      method: GET
+    response:
+      status: 401
+      statusText: Unauthorized
+      headers:
+        - name: Content-Type
+          value: application/json
+      body:
+        type: json
+        data: |-
+          {
+            "error": "unauthorized",
+            "message": "Missing or invalid authorization token",
+            "status_code": 401
+          }

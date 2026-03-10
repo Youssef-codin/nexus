@@ -9,7 +9,12 @@ INSERT INTO
   )
 VALUES
   ($1, $2, $3, $4, $5)
-RETURNING *;
+RETURNING
+  id,
+  email,
+  full_name,
+  refresh_token,
+  created_at;
 
 -- name: GetUserById :one
 SELECT * FROM users 
@@ -18,6 +23,10 @@ WHERE id = $1 AND deleted_at IS NULL;
 -- name: GetUserByEmail :one
 SELECT * FROM users
 WHERE email = $1 AND deleted_at IS NULL;
+
+-- name: GetUserByRefreshToken :one
+SELECT * FROM users
+WHERE refresh_token = $1 AND deleted_at IS NULL;
 
 -- name: UpdateUserDetails :one
 UPDATE users
