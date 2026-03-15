@@ -8,30 +8,24 @@ import (
 	"net/http"
 	"time"
 
+	"github.com/Youssef-codin/NexusPay/internal/utils/validator"
 	"github.com/go-chi/httprate"
 	httprateredis "github.com/go-chi/httprate-redis"
 	"github.com/go-chi/jwtauth/v5"
-	"github.com/go-playground/validator/v10"
 )
 
 type errorResponse struct {
 	Error string `json:"error"`
 }
 
-var validate = validator.New()
-
-func Validate(s any) error {
-	return validate.Struct(s)
-}
-
-func Read(r *http.Request, data any) error {
+func Read[T any](r *http.Request, data *T) error {
 	decoder := json.NewDecoder(r.Body)
 	decoder.DisallowUnknownFields()
 
 	if err := decoder.Decode(data); err != nil {
 		return err
 	}
-	return Validate(data)
+	return validator.Validate(data)
 }
 
 func Respond(w http.ResponseWriter, obj any, status int) {
