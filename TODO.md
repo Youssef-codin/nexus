@@ -1,27 +1,30 @@
-# NexusPay Setup Todo
+## Stripe Top-Up Flow
 
-## Core Infrastructure
+### `POST /wallet/topup`
 
-- [x] Project config (env loading, config struct)
-- [x] Database connection (PostgreSQL pool)
-- [x] Redis client setup
+- [ ] Validate request body (amount in piastres, min value)
+- [ ] Get wallet from DB using authenticated user ID
+- [ ] Create a pending transaction in DB (type: `credit`, status: `pending`)
+- [ ] Create Stripe Payment Intent (amount, currency: `egp`, metadata: `transaction_id`)
+- [ ] Return `client_secret` and `transaction_id` to client
 
-## Router & Middleware
+### `POST /webhook/stripe`
 
-- [x] Chi router init
-- [x] CORS
-- [x] Logger
-- [x] Recoverer
-- [x] Auth middleware (JWT validation)
-- [x] Rate limiting with httprate-redis
+- [ ] Read raw request body
+- [ ] Verify Stripe webhook signature using `stripe.ConstructEvent`
+- [ ] Switch on event type:
+  - `payment_intent.succeeded` → update transaction to `completed`, increment wallet balance
+  - `payment_intent.payment_failed` → update transaction to `failed`
+- [ ] Return 200 immediately (Stripe retries if it doesn't get 200)
 
-## Server
+### Queries Needed (sqlc)
 
-- [x] Graceful shutdown
-- [x] Health check endpoint (`GET /health`)
+- [ ] `CreateTransaction`
+- [ ] `UpdateTransactionStatus`
+- [ ] `GetTransactionByID`
+- [ ] `IncrementWalletBalance`
 
-## Database
+### Misc
 
-- [x] sqlc setup + sqlc.yaml
-- [x] goose migrations wired (Makefile commands)
-- [x] setup redis client api
+- [ ] Add `STRIPE_SECRET_KEY` and `STRIPE_WEBHOOK_SECRET` to `.env`
+- [ ] Store `transaction_id` in Stripe metadata so you can look it up in the webhook
