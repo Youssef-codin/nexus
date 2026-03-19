@@ -60,6 +60,19 @@ func (svc *WebhookService) HandlePaymentSucceeded(
 		return err
 	}
 
+	defer func() {
+		if err != nil {
+			svc.transactionSvc.UpdateStatus(ctx, transactions.UpdateTransactionRequest{
+				ID:     transaction.ID,
+				Status: repo.TransactionStatusFailed,
+			})
+		}
+	}()
+
+	if transaction.Status == repo.TransactionStatusProcessing {
+		return ErrAlreadyProcessing
+	}
+
 	err = svc.transactionSvc.UpdateStatus(txCtx, transactions.UpdateTransactionRequest{
 		ID:     transaction.ID,
 		Status: repo.TransactionStatusProcessing,
@@ -81,7 +94,7 @@ func (svc *WebhookService) HandlePaymentSucceeded(
 	err = svc.transactionSvc.UpdateStatus(
 		txCtx,
 		transactions.UpdateTransactionRequest{
-			ID:     req.TransactionID,
+			ID:     transaction.ID,
 			Status: repo.TransactionStatusCompleted,
 		},
 	)

@@ -169,15 +169,7 @@ func (svc *Service) TopUp(
 
 	parsedId, _ := uuid.Parse(id)
 
-	tx, err := svc.pool.BeginTx(ctx, pgx.TxOptions{})
-	if err != nil {
-		return TopUpResponse{}, err
-	}
-	defer tx.Rollback(ctx)
-
-	txCtx := dbpkg.NewTxContext(ctx, tx)
-
-	wallet, err := svc.repo.GetWalletByUserId(txCtx, pgtype.UUID{
+	wallet, err := svc.repo.GetWalletByUserId(ctx, pgtype.UUID{
 		Bytes: parsedId,
 		Valid: true,
 	})
@@ -190,7 +182,7 @@ func (svc *Service) TopUp(
 	}
 
 	transaction, err := svc.transactionsSvc.CreateTransaction(
-		txCtx,
+		ctx,
 		transactions.CreateTransactionRequest{
 			WalletID:    wallet.ID.String(),
 			Amount:      req.Amount,
@@ -211,6 +203,10 @@ func (svc *Service) TopUp(
 	})
 
 	if err != nil {
+		svc.transactionsSvc.UpdateStatus(ctx, transactions.UpdateTransactionRequest{
+			ID:     transaction.ID,
+			Status: repo.TransactionStatusFailed,
+		})
 		return TopUpResponse{
 			ID:                wallet.ID.String(),
 			UserID:            parsedId.String(),
@@ -219,10 +215,6 @@ func (svc *Service) TopUp(
 			ProviderPaymentID: paymentRes.ProviderPaymentID,
 			ClientSecret:      "",
 		}, err
-	}
-
-	if err := tx.Commit(ctx); err != nil {
-		return TopUpResponse{}, err
 	}
 
 	return TopUpResponse{
