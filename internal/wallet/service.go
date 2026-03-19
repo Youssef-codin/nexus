@@ -4,7 +4,10 @@ import (
 	"context"
 	"errors"
 
+	dbpkg "github.com/Youssef-codin/NexusPay/internal/db"
 	repo "github.com/Youssef-codin/NexusPay/internal/db/postgresql/sqlc"
+	"github.com/Youssef-codin/NexusPay/internal/payment"
+	"github.com/Youssef-codin/NexusPay/internal/transactions"
 	"github.com/Youssef-codin/NexusPay/internal/utils/api"
 	"github.com/google/uuid"
 	"github.com/jackc/pgx/v5"
@@ -16,28 +19,41 @@ var (
 	ErrBadRequest          = errors.New("Bad request")
 	ErrWalletAlreadyExists = errors.New("User already has a wallet")
 	ErrInsufficientFunds   = errors.New("Insufficient funds")
+	ErrAmountIsTooLow      = errors.New(
+		"Amount is too low, must be at least 10 EGP (1000 Piastres)",
+	)
 )
 
 type IService interface {
 	GetById(ctx context.Context, req GetWalletRequest) (GetWalletResponse, error)
 	GetByUserId(ctx context.Context) (GetWalletResponse, error)
 	CreateWallet(ctx context.Context, req CreateWalletRequest) (CreateWalletResponse, error)
-	AddToBalance(ctx context.Context, req AddToBalanceRequest) (UpdateBalanceResponse, error)
+	TopUp(ctx context.Context, req TopUpRequest) (TopUpResponse, error)
 	DeductFromBalance(
 		ctx context.Context,
-		req DeductFromBalanceRequest,
-	) (UpdateBalanceResponse, error)
+		req DeductRequest,
+	) (DeductResponse, error)
+	AddToWallet(ctx context.Context, req AddToWalletRequest) (AddToWalletResponse, error)
 }
 
 type Service struct {
-	repo walletRepository
+	pool            *pgx.Conn
+	repo            iwalletRepo
+	transactionsSvc transactions.IService
+	paymentSvc      payment.IService
 }
 
 func NewService(
-	repo walletRepository,
+	pool *pgx.Conn,
+	repo iwalletRepo,
+	transactionsSvc transactions.IService,
+	paymentSvc payment.IService,
 ) IService {
 	return &Service{
-		repo: repo,
+		pool:            pool,
+		repo:            repo,
+		transactionsSvc: transactionsSvc,
+		paymentSvc:      paymentSvc,
 	}
 }
 
@@ -137,58 +153,106 @@ func (svc *Service) CreateWallet(
 	}, nil
 }
 
-func (svc *Service) AddToBalance(
+func (svc *Service) TopUp(
 	ctx context.Context,
-	req AddToBalanceRequest,
-) (UpdateBalanceResponse, error) {
+	req TopUpRequest,
+) (TopUpResponse, error) {
+
+	if req.Amount < 1000 {
+		return TopUpResponse{}, ErrAmountIsTooLow
+	}
+
 	id, err := api.GetTokenUserID(ctx)
 	if err != nil {
-		return UpdateBalanceResponse{}, err
+		return TopUpResponse{}, err
 	}
+
 	parsedId, _ := uuid.Parse(id)
 
-	wallet, err := svc.repo.AddToBalance(ctx, repo.AddToBalanceParams{
-		UserID: pgtype.UUID{
-			Bytes: parsedId,
-			Valid: true,
-		},
-		Balance: req.Amount,
+	tx, err := svc.pool.BeginTx(ctx, pgx.TxOptions{})
+	if err != nil {
+		return TopUpResponse{}, err
+	}
+	defer tx.Rollback(ctx)
+
+	txCtx := dbpkg.NewTxContext(ctx, tx)
+
+	wallet, err := svc.repo.GetWalletByUserId(txCtx, pgtype.UUID{
+		Bytes: parsedId,
+		Valid: true,
 	})
 
 	if err != nil {
 		if errors.Is(err, pgx.ErrNoRows) {
-			return UpdateBalanceResponse{}, ErrWalletNotFound
+			return TopUpResponse{}, ErrWalletNotFound
 		}
-
-		return UpdateBalanceResponse{}, err
+		return TopUpResponse{}, err
 	}
 
-	return UpdateBalanceResponse{
-		ID:        wallet.ID.String(),
-		UserID:    parsedId.String(),
-		Balance:   wallet.Balance,
-		UpdatedAt: wallet.UpdatedAt.Time,
+	transaction, err := svc.transactionsSvc.CreateTransaction(
+		txCtx,
+		transactions.CreateTransactionRequest{
+			WalletID:    wallet.ID.String(),
+			Amount:      req.Amount,
+			Type:        repo.TransactionTypeCredit,
+			Status:      repo.TransactionStatusPending,
+			Description: req.Description,
+		},
+	)
+
+	if err != nil {
+		return TopUpResponse{}, err
+	}
+
+	paymentRes, err := svc.paymentSvc.ProcessPayment(ctx, payment.ProcessPaymentRequest{
+		Amount:        req.Amount,
+		TransactionID: transaction.ID,
+		Description:   req.Description,
+	})
+
+	if err != nil {
+		return TopUpResponse{
+			ID:                wallet.ID.String(),
+			UserID:            parsedId.String(),
+			Status:            string(repo.TransactionStatusFailed),
+			UpdatedAt:         wallet.UpdatedAt.Time,
+			ProviderPaymentID: paymentRes.ProviderPaymentID,
+			ClientSecret:      "",
+		}, err
+	}
+
+	if err := tx.Commit(ctx); err != nil {
+		return TopUpResponse{}, err
+	}
+
+	return TopUpResponse{
+		ID:                wallet.ID.String(),
+		UserID:            parsedId.String(),
+		Status:            string(paymentRes.Status),
+		UpdatedAt:         wallet.UpdatedAt.Time,
+		ProviderPaymentID: paymentRes.ProviderPaymentID,
+		ClientSecret:      paymentRes.ClientSecret,
 	}, nil
 }
 
 func (svc *Service) DeductFromBalance(
 	ctx context.Context,
-	req DeductFromBalanceRequest,
-) (UpdateBalanceResponse, error) {
+	req DeductRequest,
+) (DeductResponse, error) {
 	id, err := api.GetTokenUserID(ctx)
 	if err != nil {
-		return UpdateBalanceResponse{}, err
+		return DeductResponse{}, err
 	}
 	parsedId, _ := uuid.Parse(id)
 
 	wallet, err := svc.GetByUserId(ctx)
 
 	if err != nil {
-		return UpdateBalanceResponse{}, err
+		return DeductResponse{}, err
 	}
 
 	if wallet.Balance < req.Amount {
-		return UpdateBalanceResponse{}, ErrInsufficientFunds
+		return DeductResponse{}, ErrInsufficientFunds
 	}
 
 	newWallet, err := svc.repo.DeductFromBalance(ctx, repo.DeductFromBalanceParams{
@@ -201,16 +265,50 @@ func (svc *Service) DeductFromBalance(
 
 	if err != nil {
 		if errors.Is(err, pgx.ErrNoRows) {
-			return UpdateBalanceResponse{}, ErrWalletNotFound
+			return DeductResponse{}, ErrWalletNotFound
 		}
-
-		return UpdateBalanceResponse{}, err
+		return DeductResponse{}, err
 	}
 
-	return UpdateBalanceResponse{
+	return DeductResponse{
 		ID:        newWallet.ID.String(),
 		UserID:    parsedId.String(),
-		Balance:   newWallet.Balance,
+		Status:    string(repo.TransactionStatusCompleted),
 		UpdatedAt: newWallet.UpdatedAt.Time,
+	}, nil
+}
+
+func (svc *Service) AddToWallet(
+	ctx context.Context,
+	req AddToWalletRequest,
+) (AddToWalletResponse, error) {
+	parsedId, _ := uuid.Parse(req.WalletID)
+
+	wallet, err := svc.repo.GetWalletById(ctx, pgtype.UUID{
+		Bytes: parsedId,
+		Valid: true,
+	})
+
+	if err != nil {
+		if errors.Is(err, pgx.ErrNoRows) {
+			return AddToWalletResponse{}, ErrWalletNotFound
+		}
+		return AddToWalletResponse{}, err
+	}
+
+	updatedWallet, err := svc.repo.AddToBalance(ctx, repo.AddToBalanceParams{
+		UserID:  wallet.UserID,
+		Balance: req.Amount,
+	})
+
+	if err != nil {
+		return AddToWalletResponse{}, err
+	}
+
+	return AddToWalletResponse{
+		ID:        updatedWallet.ID.String(),
+		UserID:    uuid.UUID(wallet.UserID.Bytes).String(),
+		Balance:   updatedWallet.Balance,
+		UpdatedAt: updatedWallet.UpdatedAt.Time,
 	}, nil
 }

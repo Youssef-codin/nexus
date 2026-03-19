@@ -10,6 +10,11 @@ import (
 	"github.com/redis/go-redis/v9"
 )
 
+type stripeConfig struct {
+	apiKey        string
+	webhookSecret string
+}
+
 func main() {
 	ctx := context.Background()
 
@@ -28,6 +33,10 @@ func main() {
 			),
 		},
 		secret: env.GetEnvVar("JWT_SECRET", "secretlol"),
+		stripe: stripeConfig{
+			apiKey:        env.GetEnvVar("STRIPE_SECRET_KEY", ""),
+			webhookSecret: env.GetEnvVar("STRIPE_WEBHOOK_SECRET", ""),
+		},
 	}
 
 	redisOpt, err := redis.ParseURL(cfg.redis.dsn)
@@ -35,7 +44,9 @@ func main() {
 		panic(err)
 	}
 
-	logger := slog.New(slog.NewTextHandler(os.Stdout, nil))
+	logger := slog.New(slog.NewTextHandler(os.Stdout, &slog.HandlerOptions{
+		AddSource: true,
+	}))
 	slog.SetDefault(logger)
 
 	conn, err := pgx.Connect(ctx, cfg.db.dsn)

@@ -39,8 +39,8 @@ func (q *Queries) AddToBalance(ctx context.Context, arg AddToBalanceParams) (Wal
 }
 
 const createWallet = `-- name: CreateWallet :one
-INSERT INTO wallets (id, user_id, balance, created_at, updated_at, deleted_at)
-VALUES ($1, $2, $3, $4, $5, $6)
+INSERT INTO wallets (id, user_id, balance, created_at)
+VALUES ($1, $2, $3, $4)
 RETURNING id, user_id, balance, created_at
 `
 
@@ -49,8 +49,6 @@ type CreateWalletParams struct {
 	UserID    pgtype.UUID        `json:"user_id"`
 	Balance   int64              `json:"balance"`
 	CreatedAt pgtype.Timestamptz `json:"created_at"`
-	UpdatedAt pgtype.Timestamptz `json:"updated_at"`
-	DeletedAt pgtype.Timestamptz `json:"deleted_at"`
 }
 
 type CreateWalletRow struct {
@@ -66,8 +64,6 @@ func (q *Queries) CreateWallet(ctx context.Context, arg CreateWalletParams) (Cre
 		arg.UserID,
 		arg.Balance,
 		arg.CreatedAt,
-		arg.UpdatedAt,
-		arg.DeletedAt,
 	)
 	var i CreateWalletRow
 	err := row.Scan(

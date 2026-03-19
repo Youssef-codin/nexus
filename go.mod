@@ -1,6 +1,6 @@
 module github.com/Youssef-codin/NexusPay
 
-go 1.25.0
+go 1.26.0
 
 require (
 	github.com/go-chi/chi/v5 v5.2.5
@@ -9,6 +9,7 @@ require (
 	github.com/go-chi/jwtauth/v5 v5.4.0
 	github.com/jackc/pgx/v5 v5.8.0
 	github.com/redis/go-redis/v9 v9.18.0
+	github.com/stripe/stripe-go/v84 v84.4.1
 	golang.org/x/crypto v0.46.0
 )
 

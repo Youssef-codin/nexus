@@ -32,13 +32,13 @@ type IService interface {
 }
 
 type Service struct {
-	repo  authRepository
+	repo  iauthRepo
 	users *redisDb.Users
 	auth  *security.Authenticator
 }
 
 func NewService(
-	repo authRepository,
+	repo iauthRepo,
 	users *redisDb.Users,
 	auth *security.Authenticator,
 ) IService {

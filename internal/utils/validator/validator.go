@@ -13,10 +13,9 @@ var (
 	ErrAmountIsTooLow = errors.New(
 		"amount is too low, must be at least 10 EGP (1000 piastres)",
 	)
-	ErrInvalidTransactionStatus       = errors.New("invalid transaction status")
-	ErrInvalidTransactionType         = errors.New("invalid transaction type")
-	ErrInvalidTransferStatus          = errors.New("invalid transfer status")
-	ErrInvalidScheduledTransferStatus = errors.New("invalid scheduled transfer status")
+	ErrInvalidTransactionStatus = errors.New("invalid transaction status")
+	ErrInvalidTransactionType   = errors.New("invalid transaction type")
+	ErrInvalidTransferStatus    = errors.New("invalid transfer status")
 )
 
 func init() {
@@ -49,18 +48,6 @@ func init() {
 		}
 		return false
 	})
-
-	validate.RegisterValidation("scheduled_transfer_status", func(fl validator.FieldLevel) bool {
-		switch repo.ScheduledTransferStatus(fl.Field().String()) {
-		case repo.ScheduledTransferStatusPending,
-			repo.ScheduledTransferStatusProcessing,
-			repo.ScheduledTransferStatusCompleted,
-			repo.ScheduledTransferStatusCancelled,
-			repo.ScheduledTransferStatusFailed:
-			return true
-		}
-		return false
-	})
 }
 
 func Validate(s any) error {
@@ -77,8 +64,6 @@ func Validate(s any) error {
 				return ErrInvalidTransactionType
 			case "transfer_status":
 				return ErrInvalidTransferStatus
-			case "scheduled_transfer_status":
-				return ErrInvalidScheduledTransferStatus
 			}
 		}
 		return err

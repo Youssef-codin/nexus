@@ -8,12 +8,25 @@ type GetWalletRequest struct {
 
 type CreateWalletRequest struct{}
 
-type AddToBalanceRequest struct {
-	Amount int64 `json:"amount" validate:"min=0"`
+type TopUpRequest struct {
+	Amount      int64  `json:"amount_in_piastres" validate:"min=1000"`
+	Description string `json:"description"`
 }
 
-type DeductFromBalanceRequest struct {
-	Amount int64 `json:"amount" validate:"min=0"`
+type DeductRequest struct {
+	Amount int64 `json:"amount_in_piastres" validate:"min=1"`
+}
+
+type AddToWalletRequest struct {
+	WalletID string `json:"wallet_id" validate:"required,uuid"`
+	Amount   int64  `json:"amount_in_piastres"`
+}
+
+type AddToWalletResponse struct {
+	ID        string    `json:"id"`
+	UserID    string    `json:"user_id"`
+	Balance   int64     `json:"balance"`
+	UpdatedAt time.Time `json:"updated_at"`
 }
 
 type GetWalletResponse struct {
@@ -32,18 +45,18 @@ type CreateWalletResponse struct {
 	CreatedAt time.Time `json:"created_at"`
 }
 
-type UpdateBalanceResponse struct {
-	ID        string    `json:"id"`
-	UserID    string    `json:"user_id"`
-	Balance   int64     `json:"balance"`
-	UpdatedAt time.Time `json:"updated_at"`
+type TopUpResponse struct {
+	ID                string    `json:"id"`
+	UserID            string    `json:"user_id"`
+	Status            string    `json:"status"`
+	UpdatedAt         time.Time `json:"updated_at"`
+	ProviderPaymentID string    `json:"provider_payment_id,omitempty"`
+	ClientSecret      string    `json:"client_secret,omitempty"`
 }
 
-// type baseStruct struct {
-// 	ID        string     `json:"id"         validate:"required,uuid"`
-// 	UserID    string     `json:"user_id"    validate:"required,uuid"`
-// 	Balance   int64      `json:"balance"    validate:"min=0"`
-// 	CreatedAt time.Time  `json:"created_at" validate:"required"`
-// 	UpdatedAt time.Time  `json:"updated_at" validate:"required"`
-// 	DeletedAt *time.Time `json:"deleted_at" validate:"omitempty"`
-// }
+type DeductResponse struct {
+	ID        string    `json:"id"`
+	UserID    string    `json:"user_id"`
+	Status    string    `json:"status"`
+	UpdatedAt time.Time `json:"updated_at"`
+}

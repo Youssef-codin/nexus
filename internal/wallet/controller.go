@@ -32,13 +32,13 @@ func (c *controller) GetByUserId(w http.ResponseWriter, req *http.Request) error
 }
 
 func (c *controller) TopUp(w http.ResponseWriter, req *http.Request) error {
-	var walletReq AddToBalanceRequest
+	var walletReq TopUpRequest
 
 	if err := api.Read(req, &walletReq); err != nil {
 		return api.WrappedError(http.StatusBadRequest, "Bad Request")
 	}
 
-	wallet, err := c.svc.AddToBalance(req.Context(), walletReq)
+	wallet, err := c.svc.TopUp(req.Context(), walletReq)
 	if err != nil {
 		switch {
 		case errors.Is(err, ErrWalletNotFound):

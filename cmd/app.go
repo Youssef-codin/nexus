@@ -12,9 +12,10 @@ import (
 	"time"
 
 	"github.com/Youssef-codin/NexusPay/internal/auth"
-	repo "github.com/Youssef-codin/NexusPay/internal/db/postgresql/sqlc"
 	"github.com/Youssef-codin/NexusPay/internal/db/redisDb"
+	"github.com/Youssef-codin/NexusPay/internal/payment/stripe"
 	"github.com/Youssef-codin/NexusPay/internal/security"
+	"github.com/Youssef-codin/NexusPay/internal/transactions"
 	"github.com/Youssef-codin/NexusPay/internal/users"
 	"github.com/Youssef-codin/NexusPay/internal/utils/api"
 	"github.com/Youssef-codin/NexusPay/internal/wallet"
@@ -64,35 +65,30 @@ func (app *application) mount() http.Handler {
 	const refreshTokenDuration = 7 * 24 * time.Hour
 	authenticator := security.NewAuthenticator(app.config.secret, refreshTokenDuration)
 
-	SQLCRepo := repo.New(app.db)
 	UserCache := redisDb.NewUsers(app.redis)
 
-	AuthService := auth.NewService(SQLCRepo, UserCache, authenticator)
+	AuthRepo := auth.NewAuthRepo(app.db)
+	AuthService := auth.NewService(AuthRepo, UserCache, authenticator)
 	AuthController := auth.NewController(AuthService)
 
-	UserService := users.NewService(SQLCRepo, UserCache)
+	UserRepo := users.NewUserRepo(app.db)
+	UserService := users.NewService(UserRepo, UserCache)
 	UserController := users.NewController(UserService)
 
-	WalletService := wallet.NewService(SQLCRepo)
+	TransactionRepo := transactions.NewTransactionRepo(app.db)
+	TransactionsService := transactions.NewService(TransactionRepo)
+
+	PaymentService := stripe.NewService(app.config.stripe.apiKey)
+
+	WalletRepo := wallet.NewWalletRepo(app.db)
+	WalletService := wallet.NewService(app.db, WalletRepo, TransactionsService, PaymentService)
 	WalletController := wallet.NewController(WalletService)
 
-	rmain.Group(func(rprotected chi.Router) {
-		rprotected.Use(jwtauth.Verifier(authenticator.TokenAuth))
-		rprotected.Use(authenticator.AuthHandler())
-		rprotected.Use(api.NewUserLimiter(15, host, uint16(port)))
-
-		rprotected.Route("/auth", func(r chi.Router) {
-			r.Get("/test", api.Wrap(AuthController.TestAuth))
-			r.Post("/logout", api.Wrap(AuthController.LogoutController))
-		})
-
-		rprotected.Route("/wallet", func(r chi.Router) {
-			r.Get("/", api.Wrap(WalletController.GetByUserId))
-			r.Patch("/", api.Wrap(WalletController.TopUp))
-		})
-
-		rprotected.Get("/users", api.Wrap(UserController.SearchByNameController))
-	})
+	WebhookService := stripe.NewWebhookService(app.db, WalletService, TransactionsService)
+	WebhookController := stripe.NewWebhookController(
+		app.config.stripe.webhookSecret,
+		WebhookService,
+	)
 
 	rmain.Group(func(rpublic chi.Router) {
 		rpublic.Use(httprate.Limit(
@@ -109,10 +105,29 @@ func (app *application) mount() http.Handler {
 			api.Respond(w, nil, http.StatusNoContent)
 		})
 
+		rpublic.Post("/webhook/stripe", api.Wrap(WebhookController.Handle))
+
 		rpublic.Route("/auth", func(rauth chi.Router) {
 			rauth.Post("/register", api.Wrap(AuthController.RegisterController))
 			rauth.Post("/login", api.Wrap(AuthController.LoginController))
 			rauth.Post("/refresh", api.Wrap(AuthController.RefreshController))
+		})
+	})
+
+	rmain.Group(func(rprotected chi.Router) {
+		rprotected.Use(jwtauth.Verifier(authenticator.TokenAuth))
+		rprotected.Use(authenticator.AuthHandler())
+		rprotected.Use(api.NewUserLimiter(50, host, uint16(port)))
+
+		rprotected.Route("/users", func(r chi.Router) {
+			r.Get("/test", api.Wrap(AuthController.TestAuth))
+			r.Post("/logout", api.Wrap(AuthController.LogoutController))
+			rprotected.Get("/", api.Wrap(UserController.SearchByNameController))
+		})
+
+		rprotected.Route("/wallet", func(r chi.Router) {
+			r.Get("/", api.Wrap(WalletController.GetByUserId))
+			r.Patch("/", api.Wrap(WalletController.TopUp))
 		})
 	})
 
@@ -159,6 +174,7 @@ type config struct {
 	db     dbConfig
 	redis  dbConfig
 	secret string
+	stripe stripeConfig
 }
 
 type dbConfig struct {

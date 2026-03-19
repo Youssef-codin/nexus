@@ -1,6 +1,6 @@
 -- name: CreateWallet :one
-INSERT INTO wallets (id, user_id, balance, created_at, updated_at, deleted_at)
-VALUES ($1, $2, $3, $4, $5, $6)
+INSERT INTO wallets (id, user_id, balance, created_at)
+VALUES ($1, $2, $3, $4)
 RETURNING id, user_id, balance, created_at;
 
 -- name: GetWalletById :one
