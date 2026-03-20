@@ -122,7 +122,7 @@ func (app *application) mount() http.Handler {
 		rprotected.Route("/users", func(r chi.Router) {
 			r.Get("/test", api.Wrap(AuthController.TestAuth))
 			r.Post("/logout", api.Wrap(AuthController.LogoutController))
-			rprotected.Get("/", api.Wrap(UserController.SearchByNameController))
+			r.Get("/", api.Wrap(UserController.SearchByNameController))
 		})
 
 		rprotected.Route("/wallet", func(r chi.Router) {

@@ -4,7 +4,6 @@ import (
 	"context"
 	"errors"
 
-	dbpkg "github.com/Youssef-codin/NexusPay/internal/db"
 	repo "github.com/Youssef-codin/NexusPay/internal/db/postgresql/sqlc"
 	"github.com/Youssef-codin/NexusPay/internal/payment"
 	"github.com/Youssef-codin/NexusPay/internal/transactions"

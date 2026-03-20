@@ -25,7 +25,8 @@ func init() {
 			repo.TransactionStatusProcessing,
 			repo.TransactionStatusCompleted,
 			repo.TransactionStatusFailed,
-			repo.TransactionStatusReversed:
+			repo.TransactionStatusReversed,
+			repo.TransactionStatusReversing:
 			return true
 		}
 		return false
