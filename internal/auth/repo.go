@@ -8,7 +8,7 @@ import (
 	"github.com/jackc/pgx/v5/pgtype"
 )
 
-type iauthRepo interface {
+type authRepo interface {
 	GetUserByEmail(ctx context.Context, email string) (repo.User, error)
 	CreateUser(ctx context.Context, arg repo.CreateUserParams) (repo.CreateUserRow, error)
 	GetUserByRefreshToken(ctx context.Context, token pgtype.Text) (repo.User, error)
@@ -21,7 +21,7 @@ type AuthRepo struct {
 	db *db.DB
 }
 
-func NewAuthRepo(database *db.DB) iauthRepo {
+func NewAuthRepo(database *db.DB) authRepo {
 	return &AuthRepo{db: database}
 }
 

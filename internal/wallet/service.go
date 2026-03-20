@@ -38,14 +38,14 @@ type IService interface {
 
 type Service struct {
 	txManager       db.TxManager
-	repo            iwalletRepo
+	repo            walletRepo
 	transactionsSvc transactions.IService
 	paymentSvc      payment.IService
 }
 
 func NewService(
 	txManager db.TxManager,
-	repo iwalletRepo,
+	repo walletRepo,
 	transactionsSvc transactions.IService,
 	paymentSvc payment.IService,
 ) IService {

@@ -18,11 +18,11 @@ type IService interface {
 }
 
 type Service struct {
-	repo  iuserRepo
+	repo  userRepo
 	users *redisDb.Users
 }
 
-func NewService(repo iuserRepo, users *redisDb.Users) IService {
+func NewService(repo userRepo, users *redisDb.Users) IService {
 	return &Service{
 		repo:  repo,
 		users: users,

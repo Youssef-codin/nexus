@@ -30,11 +30,11 @@ type IService interface {
 }
 
 type Service struct {
-	repo itransactionRepo
+	repo transactionRepo
 }
 
 func NewService(
-	repo itransactionRepo,
+	repo transactionRepo,
 ) IService {
 	return &Service{
 		repo: repo,

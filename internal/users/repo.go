@@ -7,7 +7,7 @@ import (
 	repo "github.com/Youssef-codin/NexusPay/internal/db/postgresql/sqlc"
 )
 
-type iuserRepo interface {
+type userRepo interface {
 	GetUserByName(ctx context.Context, fullName string) ([]repo.User, error)
 }
 
@@ -15,7 +15,7 @@ type UserRepo struct {
 	db *db.DB
 }
 
-func NewUserRepo(database *db.DB) iuserRepo {
+func NewUserRepo(database *db.DB) userRepo {
 	return &UserRepo{db: database}
 }
 

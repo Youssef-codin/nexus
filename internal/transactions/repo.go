@@ -8,7 +8,7 @@ import (
 	"github.com/jackc/pgx/v5/pgtype"
 )
 
-type itransactionRepo interface {
+type transactionRepo interface {
 	CreateTransaction(
 		ctx context.Context,
 		arg repo.CreateTransactionParams,
@@ -29,7 +29,7 @@ type TransactionRepo struct {
 	db *db.DB
 }
 
-func NewTransactionRepo(database *db.DB) itransactionRepo {
+func NewTransactionRepo(database *db.DB) transactionRepo {
 	return &TransactionRepo{db: database}
 }
 

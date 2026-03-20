@@ -8,7 +8,7 @@ import (
 	"github.com/jackc/pgx/v5/pgtype"
 )
 
-type iwalletRepo interface {
+type walletRepo interface {
 	CreateWallet(ctx context.Context, arg repo.CreateWalletParams) (repo.CreateWalletRow, error)
 	GetWalletById(ctx context.Context, id pgtype.UUID) (repo.Wallet, error)
 	GetWalletByUserId(ctx context.Context, userID pgtype.UUID) (repo.Wallet, error)
@@ -20,7 +20,7 @@ type WalletRepo struct {
 	db *db.DB
 }
 
-func NewWalletRepo(database *db.DB) iwalletRepo {
+func NewWalletRepo(database *db.DB) walletRepo {
 	return &WalletRepo{db: database}
 }
 
