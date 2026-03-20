@@ -65,7 +65,8 @@ const getTransactionById = `-- name: GetTransactionById :one
 SELECT id, wallet_id, amount, type, status, description, transfer_id, created_at, updated_at, deleted_at
 FROM transactions
 WHERE id = $1
-  AND deleted_at IS NOT NULL
+  AND deleted_at IS NULL
+    FOR UPDATE
 `
 
 func (q *Queries) GetTransactionById(ctx context.Context, id pgtype.UUID) (Transaction, error) {
@@ -90,7 +91,7 @@ const getTransactionByTransferId = `-- name: GetTransactionByTransferId :one
 SELECT id, wallet_id, amount, type, status, description, transfer_id, created_at, updated_at, deleted_at
 FROM transactions
 WHERE transfer_id = $1
-  AND deleted_at IS NOT NULL
+  AND deleted_at IS NULL
 `
 
 func (q *Queries) GetTransactionByTransferId(ctx context.Context, transferID pgtype.UUID) (Transaction, error) {
@@ -115,7 +116,7 @@ const getTransactionsByWalletId = `-- name: GetTransactionsByWalletId :many
 SELECT id, wallet_id, amount, type, status, description, transfer_id, created_at, updated_at, deleted_at
 FROM transactions
 WHERE wallet_id = $1
-  AND deleted_at IS NOT NULL
+  AND deleted_at IS NULL
 `
 
 func (q *Queries) GetTransactionsByWalletId(ctx context.Context, walletID pgtype.UUID) ([]Transaction, error) {
@@ -153,6 +154,7 @@ const updateTransactionStatus = `-- name: UpdateTransactionStatus :one
 UPDATE transactions
 SET status = $2
 WHERE id = $1
+  AND deleted_at IS NULL
 RETURNING id, wallet_id, amount, type, status, description, transfer_id, created_at, updated_at, deleted_at
 `
 

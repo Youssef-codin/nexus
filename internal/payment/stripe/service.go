@@ -14,7 +14,7 @@ import (
 var (
 	ErrPaymentFailed    = errors.New("payment failed")
 	ErrRefundFailed     = errors.New("refund failed")
-	ErrPaymentCancelled = errors.New("error cancelld")
+	ErrPaymentCancelled = errors.New("error cancelled")
 )
 
 type Service struct{}

@@ -18,8 +18,8 @@ type DeductRequest struct {
 }
 
 type AddToWalletRequest struct {
-	WalletID string `json:"wallet_id" validate:"required,uuid"`
-	Amount   int64  `json:"amount_in_piastres"`
+	WalletID string `json:"wallet_id"          validate:"required,uuid"`
+	Amount   int64  `json:"amount_in_piastres" validate:"min=1000"`
 }
 
 type AddToWalletResponse struct {

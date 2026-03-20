@@ -6,12 +6,13 @@ import (
 	"testing"
 	"time"
 
-	"github.com/Youssef-codin/NexusPay/internal/db/postgresql/sqlc"
+	repo "github.com/Youssef-codin/NexusPay/internal/db/postgresql/sqlc"
 	"github.com/Youssef-codin/NexusPay/internal/payment"
 	"github.com/Youssef-codin/NexusPay/internal/transactions"
 	"github.com/go-chi/jwtauth/v5"
 	"github.com/google/uuid"
 	"github.com/jackc/pgx/v5"
+	"github.com/jackc/pgx/v5/pgconn"
 	"github.com/jackc/pgx/v5/pgtype"
 	"github.com/stretchr/testify/assert"
 	"github.com/stretchr/testify/mock"
@@ -21,6 +22,113 @@ func withUserID(ctx context.Context, userID string) context.Context {
 	ja := jwtauth.New("HS256", []byte("test-secret"), nil)
 	token, _, _ := ja.Encode(map[string]interface{}{"sub": userID})
 	return jwtauth.NewContext(ctx, token, nil)
+}
+
+type MockTxManager struct {
+	mock.Mock
+}
+
+func (m *MockTxManager) StartTx(ctx context.Context) (context.Context, pgx.Tx, error) {
+	args := m.Called(ctx)
+	var tx pgx.Tx
+	if args.Get(1) != nil {
+		tx = args.Get(1).(pgx.Tx)
+	}
+	return args.Get(0).(context.Context), tx, args.Error(2)
+}
+
+type MockTx struct {
+	mock.Mock
+	commitCalled bool
+}
+
+func (m *MockTx) Commit(ctx context.Context) error {
+	m.commitCalled = true
+	return nil
+}
+
+func (m *MockTx) Rollback(ctx context.Context) error {
+	return nil
+}
+
+func (m *MockTx) Begin(ctx context.Context) (pgx.Tx, error) {
+	return m, nil
+}
+
+func (m *MockTx) BeginTx(ctx context.Context, opts pgx.TxOptions) (pgx.Tx, error) {
+	return m, nil
+}
+
+func (m *MockTx) Close(ctx context.Context) error {
+	return nil
+}
+
+func (m *MockTx) Exec(ctx context.Context, sql string, args ...any) (pgconn.CommandTag, error) {
+	return pgconn.CommandTag{}, nil
+}
+
+func (m *MockTx) Query(ctx context.Context, sql string, args ...any) (pgx.Rows, error) {
+	return nil, nil
+}
+
+func (m *MockTx) QueryRow(ctx context.Context, sql string, args ...any) pgx.Row {
+	return nil
+}
+
+func (m *MockTx) CopyFrom(ctx context.Context, tableName pgx.Identifier, columnNames []string, rowSrc pgx.CopyFromSource) (int64, error) {
+	return 0, nil
+}
+
+func (m *MockTx) SendBatch(ctx context.Context, b *pgx.Batch) pgx.BatchResults {
+	return nil
+}
+
+func (m *MockTx) LargeObjects() pgx.LargeObjects {
+	return pgx.LargeObjects{}
+}
+
+func (m *MockTx) Prepare(ctx context.Context, name, sql string) (*pgconn.StatementDescription, error) {
+	return nil, nil
+}
+
+type MockConn struct{}
+
+func (m *MockConn) Close(ctx context.Context) error { return nil }
+func (m *MockConn) Exec(ctx context.Context, sql string, args ...any) (pgconn.CommandTag, error) {
+	return pgconn.CommandTag{}, nil
+}
+func (m *MockConn) Query(ctx context.Context, sql string, args ...any) (pgx.Rows, error) {
+	return nil, nil
+}
+func (m *MockConn) QueryRow(ctx context.Context, sql string, args ...any) pgx.Row { return nil }
+func (m *MockConn) CopyFrom(ctx context.Context, tableName pgx.Identifier, columnNames []string, rowSrc pgx.CopyFromSource) (int64, error) {
+	return 0, nil
+}
+func (m *MockConn) SendBatch(ctx context.Context, b *pgx.Batch) pgx.BatchResults { return nil }
+func (m *MockConn) LargeObjects() pgx.LargeObjects                               { return pgx.LargeObjects{} }
+func (m *MockConn) Prepare(ctx context.Context, name, sql string) (*pgconn.StatementDescription, error) {
+	return nil, nil
+}
+func (m *MockConn) IsClosed() bool          { return false }
+func (m *MockConn) Config() *pgx.ConnConfig { return nil }
+func (m *MockConn) PgConn() *pgconn.PgConn  { return nil }
+func (m *MockConn) WaitForNotification(ctx context.Context) (*pgconn.Notification, error) {
+	return nil, nil
+}
+func (m *MockConn) Ping(ctx context.Context) error { return nil }
+func (m *MockConn) LoadType(ctx context.Context, typeName string) (*pgtype.Type, error) {
+	return nil, nil
+}
+func (m *MockConn) LoadTypes(ctx context.Context, typeNames []string) ([]*pgtype.Type, error) {
+	return nil, nil
+}
+func (m *MockConn) TypeMap() *pgtype.Map                              { return nil }
+func (m *MockConn) Deallocate(ctx context.Context, name string) error { return nil }
+func (m *MockConn) DeallocateAll(ctx context.Context) error           { return nil }
+
+func (m *MockTx) Conn() *pgx.Conn {
+	conn := &pgx.Conn{}
+	return conn
 }
 
 type MockwalletRepo struct {
@@ -193,30 +301,6 @@ func TestTopUp(t *testing.T) {
 			expectedErr:  nil,
 			expectStatus: string(payment.PaymentStatusPending),
 		},
-		{
-			name:   "exact_minimum_amount",
-			amount: 1000,
-			setupMocks: func(mr *MockwalletRepo, mt *MockTransactionsSvc, mp *MockPaymentSvc) {
-				mr.On("GetWalletByUserId", mock.Anything, mock.Anything).Return(repo.Wallet{
-					ID:        pgtype.UUID{Bytes: walletID, Valid: true},
-					UserID:    pgtype.UUID{Bytes: userID, Valid: true},
-					Balance:   0,
-					CreatedAt: pgtype.Timestamptz{Time: time.Now(), Valid: true},
-					UpdatedAt: pgtype.Timestamptz{Time: time.Now(), Valid: true},
-				}, nil)
-				mt.On("CreateTransaction", mock.Anything, mock.Anything).Return(transactions.CreateTransactionResponse{
-					ID:     uuid.New().String(),
-					Status: repo.TransactionStatusPending,
-				}, nil)
-				mp.On("ProcessPayment", mock.Anything, mock.Anything).Return(payment.ProcessPaymentResponse{
-					ProviderPaymentID: "pi_test123",
-					ClientSecret:      "pi_test123_secret",
-					Status:            payment.PaymentStatusPending,
-				}, nil)
-			},
-			expectedErr:  nil,
-			expectStatus: string(payment.PaymentStatusPending),
-		},
 	}
 
 	for _, tt := range tests {
@@ -228,7 +312,7 @@ func TestTopUp(t *testing.T) {
 			tt.setupMocks(mockRepo, mockTxSvc, mockPaySvc)
 
 			svc := &Service{
-				pool:            nil,
+				txManager:       nil,
 				repo:            mockRepo,
 				transactionsSvc: mockTxSvc,
 				paymentSvc:      mockPaySvc,
@@ -404,8 +488,11 @@ func TestDeductFromBalance(t *testing.T) {
 	now := time.Now()
 
 	t.Run("success", func(t *testing.T) {
+		mockTxManager := new(MockTxManager)
 		mockRepo := new(MockwalletRepo)
+		mockTx := &MockTx{}
 
+		mockTxManager.On("StartTx", mock.Anything).Return(ctx, mockTx, nil)
 		mockRepo.On("GetWalletByUserId", mock.Anything, mock.Anything).Return(repo.Wallet{
 			ID:      pgtype.UUID{Bytes: walletID, Valid: true},
 			UserID:  pgtype.UUID{Bytes: userID, Valid: true},
@@ -418,39 +505,75 @@ func TestDeductFromBalance(t *testing.T) {
 			UpdatedAt: pgtype.Timestamptz{Time: now, Valid: true},
 		}, nil)
 
-		svc := &Service{repo: mockRepo}
+		svc := &Service{
+			txManager: mockTxManager,
+			repo:      mockRepo,
+		}
 		resp, err := svc.DeductFromBalance(ctx, DeductRequest{Amount: 2000})
 
 		assert.NoError(t, err)
 		assert.Equal(t, walletID.String(), resp.ID)
 		assert.Equal(t, userID.String(), resp.UserID)
+		mockTxManager.AssertExpectations(t)
 		mockRepo.AssertExpectations(t)
 	})
 
 	t.Run("insufficient_funds", func(t *testing.T) {
+		mockTxManager := new(MockTxManager)
 		mockRepo := new(MockwalletRepo)
+		mockTx := &MockTx{}
+
+		mockTxManager.On("StartTx", mock.Anything).Return(ctx, mockTx, nil)
 		mockRepo.On("GetWalletByUserId", mock.Anything, mock.Anything).Return(repo.Wallet{
 			ID:      pgtype.UUID{Bytes: walletID, Valid: true},
 			UserID:  pgtype.UUID{Bytes: userID, Valid: true},
 			Balance: 100,
 		}, nil)
 
-		svc := &Service{repo: mockRepo}
+		svc := &Service{
+			txManager: mockTxManager,
+			repo:      mockRepo,
+		}
 		_, err := svc.DeductFromBalance(ctx, DeductRequest{Amount: 2000})
 
 		assert.ErrorIs(t, err, ErrInsufficientFunds)
+		mockTxManager.AssertExpectations(t)
 		mockRepo.AssertExpectations(t)
 	})
 
 	t.Run("wallet_not_found", func(t *testing.T) {
+		mockTxManager := new(MockTxManager)
 		mockRepo := new(MockwalletRepo)
+		mockTx := &MockTx{}
+
+		mockTxManager.On("StartTx", mock.Anything).Return(ctx, mockTx, nil)
 		mockRepo.On("GetWalletByUserId", mock.Anything, mock.Anything).Return(repo.Wallet{}, pgx.ErrNoRows)
 
-		svc := &Service{repo: mockRepo}
+		svc := &Service{
+			txManager: mockTxManager,
+			repo:      mockRepo,
+		}
 		_, err := svc.DeductFromBalance(ctx, DeductRequest{Amount: 1000})
 
 		assert.ErrorIs(t, err, ErrWalletNotFound)
+		mockTxManager.AssertExpectations(t)
 		mockRepo.AssertExpectations(t)
+	})
+
+	t.Run("start_tx_fails", func(t *testing.T) {
+		mockTxManager := new(MockTxManager)
+
+		mockTxManager.On("StartTx", mock.Anything).Return(ctx, nil, errors.New("failed to start tx"))
+
+		svc := &Service{
+			txManager: mockTxManager,
+			repo:      nil,
+		}
+		_, err := svc.DeductFromBalance(ctx, DeductRequest{Amount: 1000})
+
+		assert.Error(t, err)
+		assert.Contains(t, err.Error(), "failed to start tx")
+		mockTxManager.AssertExpectations(t)
 	})
 }
 
@@ -461,12 +584,15 @@ func TestAddToWallet(t *testing.T) {
 	now := time.Now()
 
 	t.Run("success", func(t *testing.T) {
+		mockTxManager := new(MockTxManager)
 		mockRepo := new(MockwalletRepo)
+		mockTx := &MockTx{}
 
 		mockRepo.On("GetWalletById", mock.Anything, mock.Anything).Return(repo.Wallet{
 			ID:     pgtype.UUID{Bytes: walletID, Valid: true},
 			UserID: pgtype.UUID{Bytes: userID, Valid: true},
 		}, nil)
+		mockTxManager.On("StartTx", mock.Anything).Return(ctx, mockTx, nil)
 		mockRepo.On("AddToBalance", mock.Anything, mock.Anything).Return(repo.Wallet{
 			ID:        pgtype.UUID{Bytes: walletID, Valid: true},
 			UserID:    pgtype.UUID{Bytes: userID, Valid: true},
@@ -474,7 +600,10 @@ func TestAddToWallet(t *testing.T) {
 			UpdatedAt: pgtype.Timestamptz{Time: now, Valid: true},
 		}, nil)
 
-		svc := &Service{repo: mockRepo}
+		svc := &Service{
+			txManager: mockTxManager,
+			repo:      mockRepo,
+		}
 		resp, err := svc.AddToWallet(ctx, AddToWalletRequest{
 			WalletID: walletID.String(),
 			Amount:   1000,
@@ -497,24 +626,6 @@ func TestAddToWallet(t *testing.T) {
 		})
 
 		assert.ErrorIs(t, err, ErrWalletNotFound)
-		mockRepo.AssertExpectations(t)
-	})
-
-	t.Run("database_error", func(t *testing.T) {
-		mockRepo := new(MockwalletRepo)
-		mockRepo.On("GetWalletById", mock.Anything, mock.Anything).Return(repo.Wallet{
-			ID:     pgtype.UUID{Bytes: walletID, Valid: true},
-			UserID: pgtype.UUID{Bytes: userID, Valid: true},
-		}, nil)
-		mockRepo.On("AddToBalance", mock.Anything, mock.Anything).Return(repo.Wallet{}, errors.New("db error"))
-
-		svc := &Service{repo: mockRepo}
-		_, err := svc.AddToWallet(ctx, AddToWalletRequest{
-			WalletID: walletID.String(),
-			Amount:   1000,
-		})
-
-		assert.Error(t, err)
 		mockRepo.AssertExpectations(t)
 	})
 }

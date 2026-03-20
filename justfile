@@ -21,6 +21,10 @@ test:
     go test ./...
 
 [group('test')]
+testv:
+    go test ./...
+
+[group('test')]
 coverage:
     mkdir -p docs
     go test -tags=integration -coverprofile=coverage.out ./...

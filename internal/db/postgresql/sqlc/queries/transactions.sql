@@ -8,24 +8,26 @@ RETURNING id, wallet_id, amount, type, status, transfer_id, created_at, descript
 SELECT *
 FROM transactions
 WHERE id = $1
-  AND deleted_at IS NOT NULL;
+  AND deleted_at IS NULL
+    FOR UPDATE;
 
 -- name: GetTransactionsByWalletId :many
 SELECT *
 FROM transactions
 WHERE wallet_id = $1
-  AND deleted_at IS NOT NULL;
+  AND deleted_at IS NULL;
 
 -- name: GetTransactionByTransferId :one
 SELECT *
 FROM transactions
 WHERE transfer_id = $1
-  AND deleted_at IS NOT NULL;
+  AND deleted_at IS NULL;
 
 -- name: UpdateTransactionStatus :one
 UPDATE transactions
 SET status = $2
 WHERE id = $1
+  AND deleted_at IS NULL
 RETURNING *;
 
 

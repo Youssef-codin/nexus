@@ -9,11 +9,11 @@ import (
 
 type ctxKeyTx struct{}
 
-func Queries(ctx context.Context, pool *pgx.Conn) *repo.Queries {
+func Queries(ctx context.Context, db *DB) *repo.Queries {
 	if tx, ok := ctx.Value(ctxKeyTx{}).(pgx.Tx); ok {
 		return repo.New(tx)
 	}
-	return repo.New(pool)
+	return repo.New(db.pool)
 }
 
 func NewTxContext(ctx context.Context, tx pgx.Tx) context.Context {

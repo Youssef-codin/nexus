@@ -73,7 +73,3 @@ func TestHelper_MockQuerier(t *testing.T) {
 		t.Errorf("expected 1 user in mock, got %d", len(mock.users))
 	}
 }
-
-func TestFindByName_Integration(t *testing.T) {
-	t.Skip("Integration test - requires database connection")
-}

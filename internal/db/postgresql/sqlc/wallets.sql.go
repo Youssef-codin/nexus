@@ -15,6 +15,7 @@ const addToBalance = `-- name: AddToBalance :one
 UPDATE wallets
 SET balance = balance + $2
 WHERE user_id = $1
+  AND $2 > 0
   AND deleted_at IS NULL
 RETURNING id, user_id, balance, created_at, updated_at, deleted_at
 `
@@ -39,16 +40,14 @@ func (q *Queries) AddToBalance(ctx context.Context, arg AddToBalanceParams) (Wal
 }
 
 const createWallet = `-- name: CreateWallet :one
-INSERT INTO wallets (id, user_id, balance, created_at)
-VALUES ($1, $2, $3, $4)
+INSERT INTO wallets (user_id, balance)
+VALUES ($1, $2)
 RETURNING id, user_id, balance, created_at
 `
 
 type CreateWalletParams struct {
-	ID        pgtype.UUID        `json:"id"`
-	UserID    pgtype.UUID        `json:"user_id"`
-	Balance   int64              `json:"balance"`
-	CreatedAt pgtype.Timestamptz `json:"created_at"`
+	UserID  pgtype.UUID `json:"user_id"`
+	Balance int64       `json:"balance"`
 }
 
 type CreateWalletRow struct {
@@ -59,12 +58,7 @@ type CreateWalletRow struct {
 }
 
 func (q *Queries) CreateWallet(ctx context.Context, arg CreateWalletParams) (CreateWalletRow, error) {
-	row := q.db.QueryRow(ctx, createWallet,
-		arg.ID,
-		arg.UserID,
-		arg.Balance,
-		arg.CreatedAt,
-	)
+	row := q.db.QueryRow(ctx, createWallet, arg.UserID, arg.Balance)
 	var i CreateWalletRow
 	err := row.Scan(
 		&i.ID,
@@ -79,6 +73,8 @@ const deductFromBalance = `-- name: DeductFromBalance :one
 UPDATE wallets
 SET balance = balance - $2
 WHERE user_id = $1
+  AND $2 > 0
+  AND balance >= $2
   AND deleted_at IS NULL
 RETURNING id, user_id, balance, created_at, updated_at, deleted_at
 `

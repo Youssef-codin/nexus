@@ -4,11 +4,10 @@ import (
 	"context"
 	"errors"
 
-	dbpkg "github.com/Youssef-codin/NexusPay/internal/db"
+	"github.com/Youssef-codin/NexusPay/internal/db"
 	repo "github.com/Youssef-codin/NexusPay/internal/db/postgresql/sqlc"
 	"github.com/Youssef-codin/NexusPay/internal/transactions"
 	"github.com/Youssef-codin/NexusPay/internal/wallet"
-	"github.com/jackc/pgx/v5"
 )
 
 var (
@@ -23,18 +22,18 @@ type IService interface {
 }
 
 type WebhookService struct {
-	pool           *pgx.Conn
+	txManager      db.TxManager
 	walletSvc      wallet.IService
 	transactionSvc transactions.IService
 }
 
 func NewWebhookService(
-	pool *pgx.Conn,
+	txManager db.TxManager,
 	walletSvc wallet.IService,
 	transactionSvc transactions.IService,
 ) IService {
 	return &WebhookService{
-		pool:           pool,
+		txManager:      txManager,
 		walletSvc:      walletSvc,
 		transactionSvc: transactionSvc,
 	}
@@ -44,13 +43,11 @@ func (svc *WebhookService) HandlePaymentSucceeded(
 	ctx context.Context,
 	req HandlePaymentSucceededRequest,
 ) error {
-	tx, err := svc.pool.BeginTx(ctx, pgx.TxOptions{})
+	txCtx, tx, err := svc.txManager.StartTx(ctx)
 	if err != nil {
 		return err
 	}
 	defer tx.Rollback(ctx)
-
-	txCtx := dbpkg.NewTxContext(ctx, tx)
 
 	transaction, err := svc.transactionSvc.GetById(txCtx, transactions.GetByIdRequest{
 		ID: req.TransactionID,
@@ -59,15 +56,6 @@ func (svc *WebhookService) HandlePaymentSucceeded(
 	if err != nil {
 		return err
 	}
-
-	defer func() {
-		if err != nil {
-			svc.transactionSvc.UpdateStatus(ctx, transactions.UpdateTransactionRequest{
-				ID:     transaction.ID,
-				Status: repo.TransactionStatusFailed,
-			})
-		}
-	}()
 
 	if transaction.Status == repo.TransactionStatusProcessing {
 		return ErrAlreadyProcessing
@@ -103,7 +91,7 @@ func (svc *WebhookService) HandlePaymentSucceeded(
 		return err
 	}
 
-	return tx.Commit(ctx)
+	return tx.Commit(txCtx)
 }
 
 func (svc *WebhookService) HandlePaymentFailed(

@@ -12,6 +12,7 @@ import (
 	"time"
 
 	"github.com/Youssef-codin/NexusPay/internal/auth"
+	"github.com/Youssef-codin/NexusPay/internal/db"
 	"github.com/Youssef-codin/NexusPay/internal/db/redisDb"
 	"github.com/Youssef-codin/NexusPay/internal/payment/stripe"
 	"github.com/Youssef-codin/NexusPay/internal/security"
@@ -25,7 +26,6 @@ import (
 	"github.com/go-chi/httprate"
 	httprateredis "github.com/go-chi/httprate-redis"
 	"github.com/go-chi/jwtauth/v5"
-	"github.com/jackc/pgx/v5"
 	"github.com/redis/go-redis/v9"
 )
 
@@ -41,25 +41,19 @@ func (app *application) mount() http.Handler {
 		api.Error(w, "route not found", http.StatusNotFound)
 	})
 
-	// A good base middleware stack
 	rmain.Use(middleware.RequestID)
 	rmain.Use(middleware.RealIP)
 	rmain.Use(middleware.Logger)
 	rmain.Use(middleware.Recoverer)
 	rmain.Use(cors.Handler(cors.Options{
-		// AllowedOrigins:   []string{"https://foo.com"}, // Use this to allow specific origin hosts
-		AllowedOrigins: []string{"https://*", "http://*"},
-		// AllowOriginFunc:  func(r *http.Request, origin string) bool { return true },
+		AllowedOrigins:   []string{"https://*", "http://*"},
 		AllowedMethods:   []string{"GET", "POST", "PUT", "DELETE", "PATCH"},
 		AllowedHeaders:   []string{"Accept", "Authorization", "Content-Type", "X-CSRF-Token"},
 		ExposedHeaders:   []string{"Link"},
 		AllowCredentials: false,
-		MaxAge:           300, // Maximum value not ignored by any of major browsers
+		MaxAge:           300,
 	}))
 
-	// Set a timeout value on the request context (ctx), that will signal
-	// through ctx.Done() that the request has timed out and further
-	// processing should be stopped.
 	rmain.Use(middleware.Timeout(60 * time.Second))
 
 	const refreshTokenDuration = 7 * 24 * time.Hour
@@ -144,7 +138,6 @@ func (app *application) run(h http.Handler) error {
 		IdleTimeout:  time.Minute,
 	}
 
-	//graceful shutdown
 	go func() {
 		if err := srv.ListenAndServe(); err != nil && !errors.Is(err, http.ErrServerClosed) {
 			log.Printf("Server error: %v", err)
@@ -164,9 +157,14 @@ func (app *application) run(h http.Handler) error {
 
 type application struct {
 	config    config
-	db        *pgx.Conn
+	db        *db.DB
 	redis     *redis.Client
 	redisOpts *redis.Options
+}
+
+type stripeConfig struct {
+	apiKey        string
+	webhookSecret string
 }
 
 type config struct {

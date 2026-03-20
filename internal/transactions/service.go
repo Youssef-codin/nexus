@@ -97,6 +97,10 @@ func (svc *Service) CreateTransaction(
 		Type:       req.Type,
 		Status:     req.Status,
 		TransferID: pgtype.UUID{Valid: false},
+		Description: pgtype.Text{
+			String: req.Description,
+			Valid:  true,
+		},
 	})
 
 	if err != nil {

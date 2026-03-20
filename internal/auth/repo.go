@@ -5,7 +5,6 @@ import (
 
 	"github.com/Youssef-codin/NexusPay/internal/db"
 	repo "github.com/Youssef-codin/NexusPay/internal/db/postgresql/sqlc"
-	"github.com/jackc/pgx/v5"
 	"github.com/jackc/pgx/v5/pgtype"
 )
 
@@ -19,42 +18,42 @@ type iauthRepo interface {
 }
 
 type AuthRepo struct {
-	pool *pgx.Conn
+	db *db.DB
 }
 
-func NewAuthRepo(pool *pgx.Conn) iauthRepo {
-	return &AuthRepo{pool: pool}
+func NewAuthRepo(database *db.DB) iauthRepo {
+	return &AuthRepo{db: database}
 }
 
 func (r *AuthRepo) GetUserByEmail(ctx context.Context, email string) (repo.User, error) {
-	return db.Queries(ctx, r.pool).GetUserByEmail(ctx, email)
+	return db.Queries(ctx, r.db).GetUserByEmail(ctx, email)
 }
 
 func (r *AuthRepo) CreateUser(
 	ctx context.Context,
 	arg repo.CreateUserParams,
 ) (repo.CreateUserRow, error) {
-	return db.Queries(ctx, r.pool).CreateUser(ctx, arg)
+	return db.Queries(ctx, r.db).CreateUser(ctx, arg)
 }
 
 func (r *AuthRepo) GetUserByRefreshToken(
 	ctx context.Context,
 	token pgtype.Text,
 ) (repo.User, error) {
-	return db.Queries(ctx, r.pool).GetUserByRefreshToken(ctx, token)
+	return db.Queries(ctx, r.db).GetUserByRefreshToken(ctx, token)
 }
 
 func (r *AuthRepo) UpdateRefreshToken(
 	ctx context.Context,
 	arg repo.UpdateRefreshTokenParams,
 ) error {
-	return db.Queries(ctx, r.pool).UpdateRefreshToken(ctx, arg)
+	return db.Queries(ctx, r.db).UpdateRefreshToken(ctx, arg)
 }
 
 func (r *AuthRepo) GetUserById(ctx context.Context, id pgtype.UUID) (repo.User, error) {
-	return db.Queries(ctx, r.pool).GetUserById(ctx, id)
+	return db.Queries(ctx, r.db).GetUserById(ctx, id)
 }
 
 func (r *AuthRepo) RevokeRefreshToken(ctx context.Context, id pgtype.UUID) error {
-	return db.Queries(ctx, r.pool).RevokeRefreshToken(ctx, id)
+	return db.Queries(ctx, r.db).RevokeRefreshToken(ctx, id)
 }

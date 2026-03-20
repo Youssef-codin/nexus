@@ -18,17 +18,17 @@ func NewWallets(client *redis.Client) *Wallets {
 	return &Wallets{client: client}
 }
 
-func (w *Wallets) Get(ctx context.Context, id string) (repo.Wallet, error) {
+func (w *Wallets) Get(ctx context.Context, id string) (*repo.Wallet, error) {
 	key := fmt.Sprintf("wallets:%s", id)
 	data, err := w.client.Get(ctx, key).Result()
 	if err != nil {
-		return repo.Wallet{}, err
+		return nil, err
 	}
 	var wallet repo.Wallet
 	if err := json.Unmarshal([]byte(data), &wallet); err != nil {
-		return repo.Wallet{}, err
+		return nil, err
 	}
-	return wallet, nil
+	return &wallet, nil
 }
 
 func (w *Wallets) Set(

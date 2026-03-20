@@ -5,7 +5,6 @@ import (
 
 	"github.com/Youssef-codin/NexusPay/internal/db"
 	repo "github.com/Youssef-codin/NexusPay/internal/db/postgresql/sqlc"
-	"github.com/jackc/pgx/v5"
 	"github.com/jackc/pgx/v5/pgtype"
 )
 
@@ -18,41 +17,41 @@ type iwalletRepo interface {
 }
 
 type WalletRepo struct {
-	pool *pgx.Conn
+	db *db.DB
 }
 
-func NewWalletRepo(pool *pgx.Conn) iwalletRepo {
-	return &WalletRepo{pool: pool}
+func NewWalletRepo(database *db.DB) iwalletRepo {
+	return &WalletRepo{db: database}
 }
 
 func (r *WalletRepo) CreateWallet(
 	ctx context.Context,
 	arg repo.CreateWalletParams,
 ) (repo.CreateWalletRow, error) {
-	return db.Queries(ctx, r.pool).CreateWallet(ctx, arg)
+	return db.Queries(ctx, r.db).CreateWallet(ctx, arg)
 }
 
 func (r *WalletRepo) GetWalletById(ctx context.Context, id pgtype.UUID) (repo.Wallet, error) {
-	return db.Queries(ctx, r.pool).GetWalletById(ctx, id)
+	return db.Queries(ctx, r.db).GetWalletById(ctx, id)
 }
 
 func (r *WalletRepo) GetWalletByUserId(
 	ctx context.Context,
 	userID pgtype.UUID,
 ) (repo.Wallet, error) {
-	return db.Queries(ctx, r.pool).GetWalletByUserId(ctx, userID)
+	return db.Queries(ctx, r.db).GetWalletByUserId(ctx, userID)
 }
 
 func (r *WalletRepo) DeductFromBalance(
 	ctx context.Context,
 	arg repo.DeductFromBalanceParams,
 ) (repo.Wallet, error) {
-	return db.Queries(ctx, r.pool).DeductFromBalance(ctx, arg)
+	return db.Queries(ctx, r.db).DeductFromBalance(ctx, arg)
 }
 
 func (r *WalletRepo) AddToBalance(
 	ctx context.Context,
 	arg repo.AddToBalanceParams,
 ) (repo.Wallet, error) {
-	return db.Queries(ctx, r.pool).AddToBalance(ctx, arg)
+	return db.Queries(ctx, r.db).AddToBalance(ctx, arg)
 }

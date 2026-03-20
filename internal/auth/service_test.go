@@ -6,46 +6,6 @@ import (
 	"github.com/Youssef-codin/NexusPay/internal/security"
 )
 
-func TestService_Register_Success(t *testing.T) {
-	t.Skip("Integration test - requires database connection")
-}
-
-func TestService_Register_PasswordTooLong(t *testing.T) {
-	t.Skip("Integration test - requires database connection")
-}
-
-func TestService_Login_Success(t *testing.T) {
-	t.Skip("Integration test - requires database connection")
-}
-
-func TestService_Login_InvalidPassword(t *testing.T) {
-	t.Skip("Integration test - requires database connection")
-}
-
-func TestService_Login_UserNotFound(t *testing.T) {
-	t.Skip("Integration test - requires database connection")
-}
-
-func TestService_RefreshToken_Success(t *testing.T) {
-	t.Skip("Integration test - requires database connection")
-}
-
-func TestService_RefreshToken_InvalidToken(t *testing.T) {
-	t.Skip("Integration test - requires database connection")
-}
-
-func TestService_RefreshToken_ExpiredToken(t *testing.T) {
-	t.Skip("Integration test - requires database connection")
-}
-
-func TestService_Logout_Success(t *testing.T) {
-	t.Skip("Integration test - requires database connection")
-}
-
-func TestService_Logout_UserNotFound(t *testing.T) {
-	t.Skip("Integration test - requires database connection")
-}
-
 func TestHelper_NewAuthenticator(t *testing.T) {
 	auth := security.NewAuthenticator("test-secret-key", 7*24*3600)
 	if auth == nil {

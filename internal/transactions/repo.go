@@ -5,7 +5,6 @@ import (
 
 	"github.com/Youssef-codin/NexusPay/internal/db"
 	repo "github.com/Youssef-codin/NexusPay/internal/db/postgresql/sqlc"
-	"github.com/jackc/pgx/v5"
 	"github.com/jackc/pgx/v5/pgtype"
 )
 
@@ -27,44 +26,44 @@ type itransactionRepo interface {
 }
 
 type TransactionRepo struct {
-	pool *pgx.Conn
+	db *db.DB
 }
 
-func NewTransactionRepo(pool *pgx.Conn) itransactionRepo {
-	return &TransactionRepo{pool: pool}
+func NewTransactionRepo(database *db.DB) itransactionRepo {
+	return &TransactionRepo{db: database}
 }
 
 func (r *TransactionRepo) CreateTransaction(
 	ctx context.Context,
 	arg repo.CreateTransactionParams,
 ) (repo.CreateTransactionRow, error) {
-	return db.Queries(ctx, r.pool).CreateTransaction(ctx, arg)
+	return db.Queries(ctx, r.db).CreateTransaction(ctx, arg)
 }
 
 func (r *TransactionRepo) GetTransactionById(
 	ctx context.Context,
 	id pgtype.UUID,
 ) (repo.Transaction, error) {
-	return db.Queries(ctx, r.pool).GetTransactionById(ctx, id)
+	return db.Queries(ctx, r.db).GetTransactionById(ctx, id)
 }
 
 func (r *TransactionRepo) GetTransactionByTransferId(
 	ctx context.Context,
 	transferID pgtype.UUID,
 ) (repo.Transaction, error) {
-	return db.Queries(ctx, r.pool).GetTransactionByTransferId(ctx, transferID)
+	return db.Queries(ctx, r.db).GetTransactionByTransferId(ctx, transferID)
 }
 
 func (r *TransactionRepo) GetTransactionsByWalletId(
 	ctx context.Context,
 	walletID pgtype.UUID,
 ) ([]repo.Transaction, error) {
-	return db.Queries(ctx, r.pool).GetTransactionsByWalletId(ctx, walletID)
+	return db.Queries(ctx, r.db).GetTransactionsByWalletId(ctx, walletID)
 }
 
 func (r *TransactionRepo) UpdateTransactionStatus(
 	ctx context.Context,
 	arg repo.UpdateTransactionStatusParams,
 ) (repo.Transaction, error) {
-	return db.Queries(ctx, r.pool).UpdateTransactionStatus(ctx, arg)
+	return db.Queries(ctx, r.db).UpdateTransactionStatus(ctx, arg)
 }

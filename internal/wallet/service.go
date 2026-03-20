@@ -4,6 +4,7 @@ import (
 	"context"
 	"errors"
 
+	"github.com/Youssef-codin/NexusPay/internal/db"
 	repo "github.com/Youssef-codin/NexusPay/internal/db/postgresql/sqlc"
 	"github.com/Youssef-codin/NexusPay/internal/payment"
 	"github.com/Youssef-codin/NexusPay/internal/transactions"
@@ -36,20 +37,20 @@ type IService interface {
 }
 
 type Service struct {
-	pool            *pgx.Conn
+	txManager       db.TxManager
 	repo            iwalletRepo
 	transactionsSvc transactions.IService
 	paymentSvc      payment.IService
 }
 
 func NewService(
-	pool *pgx.Conn,
+	txManager db.TxManager,
 	repo iwalletRepo,
 	transactionsSvc transactions.IService,
 	paymentSvc payment.IService,
 ) IService {
 	return &Service{
-		pool:            pool,
+		txManager:       txManager,
 		repo:            repo,
 		transactionsSvc: transactionsSvc,
 		paymentSvc:      paymentSvc,
@@ -206,14 +207,7 @@ func (svc *Service) TopUp(
 			ID:     transaction.ID,
 			Status: repo.TransactionStatusFailed,
 		})
-		return TopUpResponse{
-			ID:                wallet.ID.String(),
-			UserID:            parsedId.String(),
-			Status:            string(repo.TransactionStatusFailed),
-			UpdatedAt:         wallet.UpdatedAt.Time,
-			ProviderPaymentID: paymentRes.ProviderPaymentID,
-			ClientSecret:      "",
-		}, err
+		return TopUpResponse{}, err
 	}
 
 	return TopUpResponse{
@@ -236,9 +230,21 @@ func (svc *Service) DeductFromBalance(
 	}
 	parsedId, _ := uuid.Parse(id)
 
-	wallet, err := svc.GetByUserId(ctx)
+	txCtx, tx, err := svc.txManager.StartTx(ctx)
+	if err != nil {
+		return DeductResponse{}, err
+	}
+	defer tx.Rollback(ctx)
+
+	wallet, err := svc.repo.GetWalletByUserId(txCtx, pgtype.UUID{
+		Bytes: parsedId,
+		Valid: true,
+	})
 
 	if err != nil {
+		if errors.Is(err, pgx.ErrNoRows) {
+			return DeductResponse{}, ErrWalletNotFound
+		}
 		return DeductResponse{}, err
 	}
 
@@ -246,7 +252,7 @@ func (svc *Service) DeductFromBalance(
 		return DeductResponse{}, ErrInsufficientFunds
 	}
 
-	newWallet, err := svc.repo.DeductFromBalance(ctx, repo.DeductFromBalanceParams{
+	newWallet, err := svc.repo.DeductFromBalance(txCtx, repo.DeductFromBalanceParams{
 		UserID: pgtype.UUID{
 			Bytes: parsedId,
 			Valid: true,
@@ -258,6 +264,10 @@ func (svc *Service) DeductFromBalance(
 		if errors.Is(err, pgx.ErrNoRows) {
 			return DeductResponse{}, ErrWalletNotFound
 		}
+		return DeductResponse{}, err
+	}
+
+	if err := tx.Commit(ctx); err != nil {
 		return DeductResponse{}, err
 	}
 
@@ -287,12 +297,22 @@ func (svc *Service) AddToWallet(
 		return AddToWalletResponse{}, err
 	}
 
-	updatedWallet, err := svc.repo.AddToBalance(ctx, repo.AddToBalanceParams{
+	txCtx, tx, err := svc.txManager.StartTx(ctx)
+	if err != nil {
+		return AddToWalletResponse{}, err
+	}
+	defer tx.Rollback(txCtx)
+
+	updatedWallet, err := svc.repo.AddToBalance(txCtx, repo.AddToBalanceParams{
 		UserID:  wallet.UserID,
 		Balance: req.Amount,
 	})
 
 	if err != nil {
+		return AddToWalletResponse{}, err
+	}
+
+	if err := tx.Commit(txCtx); err != nil {
 		return AddToWalletResponse{}, err
 	}
 
