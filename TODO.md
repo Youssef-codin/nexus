@@ -24,9 +24,10 @@
 - [x] `GetTransactionByID`
 - [x] `IncrementWalletBalance`
 
-## ~Misc~
+## Misc
 
 - [x] Add `STRIPE_SECRET_KEY` and `STRIPE_WEBHOOK_SECRET` to `.env`
 - [x] Store `transaction_id` in Stripe metadata so you can look it up in the webhook
-- [ ] Add time out to processPayment
+- [x] Add time out to processPayment
+- [ ] implement rest of stripe payment service
 - [ ] Add an integration test that tests our transaction logic
