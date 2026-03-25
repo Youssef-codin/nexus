@@ -46,6 +46,11 @@ func main() {
 	}
 	defer pool.Close()
 
+	if err := pool.Ping(ctx); err != nil {
+		logger.Error("Connection to db FAILED", "error", err)
+		os.Exit(1)
+	}
+
 	logger.Info("Connected to db")
 
 	database := db.New(pool)

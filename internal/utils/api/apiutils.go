@@ -12,6 +12,7 @@ import (
 	"github.com/go-chi/httprate"
 	httprateredis "github.com/go-chi/httprate-redis"
 	"github.com/go-chi/jwtauth/v5"
+	"github.com/redis/go-redis/v9"
 )
 
 type errorResponse struct {
@@ -40,7 +41,10 @@ func Error(w http.ResponseWriter, msg string, status int) {
 	json.NewEncoder(w).Encode(errorResponse{Error: msg})
 }
 
-func NewUserLimiter(requestsPerMin int, host string, port uint16) func(http.Handler) http.Handler {
+func NewUserLimiter(
+	requestsPerMin int,
+	client redis.UniversalClient,
+) func(http.Handler) http.Handler {
 	return httprate.Limit(
 		requestsPerMin, time.Minute,
 		httprate.WithKeyFuncs(func(r *http.Request) (string, error) {
@@ -53,7 +57,7 @@ func NewUserLimiter(requestsPerMin int, host string, port uint16) func(http.Hand
 			return sub, nil
 		}),
 		httprateredis.WithRedisLimitCounter(&httprateredis.Config{
-			Host: host, Port: port,
+			Client: client,
 		}),
 	)
 }

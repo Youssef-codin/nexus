@@ -71,8 +71,7 @@ func (svc *Service) ProcessPayment(
 		}
 
 		// non-timeout error, don't retry
-		var stripeErr *stripe.Error
-		if errors.As(err, &stripeErr) {
+		if stripeErr, ok := errors.AsType[*stripe.Error](err); ok {
 			slog.Error("stripe payment failed",
 				"error", err,
 				"stripe_error_type", stripeErr.Type,
@@ -139,7 +138,7 @@ func (svc *Service) Refund(
 	// 	Amount:   re.Amount,
 	// }, nil
 
-	return payment.RefundResponse{}, ErrPaymentFailed
+	return payment.RefundResponse{}, ErrUnimplemented
 }
 
 // TODO: future feature hopefully
@@ -165,12 +164,12 @@ func FromStripePaymentIntentStatus(s stripe.PaymentIntentStatus) payment.Payment
 	switch s {
 	case stripe.PaymentIntentStatusSucceeded:
 		return payment.PaymentStatusCompleted
-	case stripe.PaymentIntentStatusCanceled,
-		stripe.PaymentIntentStatusRequiresPaymentMethod:
+	case stripe.PaymentIntentStatusCanceled:
 		return payment.PaymentStatusFailed
 	case stripe.PaymentIntentStatusProcessing,
 		stripe.PaymentIntentStatusRequiresAction,
 		stripe.PaymentIntentStatusRequiresCapture,
+		stripe.PaymentIntentStatusRequiresPaymentMethod,
 		stripe.PaymentIntentStatusRequiresConfirmation:
 		return payment.PaymentStatusPending
 	default:

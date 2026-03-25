@@ -90,8 +90,7 @@ func (app *application) mount() http.Handler {
 			time.Minute,
 			httprate.WithKeyByIP(),
 			httprateredis.WithRedisLimitCounter(&httprateredis.Config{
-				Host: host,
-				Port: uint16(port),
+				Client: app.redis,
 			}),
 		))
 
@@ -109,7 +108,7 @@ func (app *application) mount() http.Handler {
 	rmain.Group(func(rprotected chi.Router) {
 		rprotected.Use(jwtauth.Verifier(authenticator.TokenAuth))
 		rprotected.Use(authenticator.AuthHandler())
-		rprotected.Use(api.NewUserLimiter(50, host, uint16(port)))
+		rprotected.Use(api.NewUserLimiter(50, app.redis))
 
 		rprotected.Route("/users", func(r chi.Router) {
 			r.Get("/test", api.Wrap(AuthController.TestAuth))
